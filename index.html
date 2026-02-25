@@ -12,7 +12,385 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        // PASTE THE ENTIRE REACT CODE HERE (everything from the code block above)
+        // Simple icon components
+        const Calendar = () => <span>📅</span>;
+        const DollarSign = () => <span>💵</span>;
+        const TrendingUp = () => <span>📈</span>;
+        const Users = () => <span>👥</span>;
+        const Download = () => <span>⬇️</span>;
+        const Upload = () => <span>⬆️</span>;
+
+        function TowingPayrollSystem() {
+            const [drivers, setDrivers] = React.useState([]);
+            const [selectedDriver, setSelectedDriver] = React.useState(null);
+            const [activeTab, setActiveTab] = React.useState('add');
+            
+            const [formData, setFormData] = React.useState({
+                name: '',
+                date: new Date().toISOString().split('T')[0],
+                tows: 0,
+                dollarPerTow: 30
+            });
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                const earnings = formData.tows * formData.dollarPerTow;
+                
+                const newEntry = {
+                    id: Date.now(),
+                    ...formData,
+                    earnings
+                };
+
+                setDrivers(prev => [...prev, newEntry]);
+                setFormData({
+                    name: formData.name,
+                    date: new Date().toISOString().split('T')[0],
+                    tows: 0,
+                    dollarPerTow: 30
+                });
+            };
+
+            const deleteEntry = (id) => {
+                setDrivers(prev => prev.filter(d => d.id !== id));
+            };
+
+            const exportData = () => {
+                const dataStr = JSON.stringify(drivers, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'towing-payroll-data.json';
+                link.click();
+            };
+
+            const importData = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const imported = JSON.parse(event.target.result);
+                            setDrivers(imported);
+                        } catch (error) {
+                            alert('Error importing data. Please check the file format.');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+
+            const driverStats = React.useMemo(() => {
+                const stats = {};
+                drivers.forEach(entry => {
+                    if (!stats[entry.name]) {
+                        stats[entry.name] = {
+                            totalTows: 0,
+                            totalEarnings: 0,
+                            entries: []
+                        };
+                    }
+                    stats[entry.name].totalTows += entry.tows;
+                    stats[entry.name].totalEarnings += entry.earnings;
+                    stats[entry.name].entries.push(entry);
+                });
+                return stats;
+            }, [drivers]);
+
+            const totals = React.useMemo(() => {
+                return {
+                    totalDrivers: Object.keys(driverStats).length,
+                    totalTows: drivers.reduce((sum, d) => sum + d.tows, 0),
+                    totalEarnings: drivers.reduce((sum, d) => sum + d.earnings, 0)
+                };
+            }, [drivers, driverStats]);
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-8">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+                            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 sm:p-8">
+                                <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
+                                    Towing Payroll System
+                                </h1>
+                                <p className="text-blue-100">Track driver performance and earnings</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6 bg-gray-50">
+                                <div className="bg-white p-4 rounded-xl shadow-md border-l-4 border-blue-500">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-gray-600 text-sm">Total Drivers</p>
+                                            <p className="text-2xl font-bold text-gray-800">{totals.totalDrivers}</p>
+                                        </div>
+                                        <div className="text-4xl"><Users /></div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white p-4 rounded-xl shadow-md border-l-4 border-green-500">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-gray-600 text-sm">Total Tows</p>
+                                            <p className="text-2xl font-bold text-gray-800">{totals.totalTows}</p>
+                                        </div>
+                                        <div className="text-4xl"><TrendingUp /></div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white p-4 rounded-xl shadow-md border-l-4 border-purple-500">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-gray-600 text-sm">Total Earnings</p>
+                                            <p className="text-2xl font-bold text-gray-800">
+                                                ${totals.totalEarnings.toFixed(2)}
+                                            </p>
+                                        </div>
+                                        <div className="text-4xl"><DollarSign /></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mx-6 mb-4">
+                                <p className="text-sm text-yellow-800">
+                                    <strong>Note:</strong> Data is stored in memory only. Use Export/Import to save your data permanently.
+                                </p>
+                            </div>
+
+                            <div className="p-6">
+                                <div className="flex flex-wrap gap-2 mb-6">
+                                    <button
+                                        onClick={() => setActiveTab('add')}
+                                        className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                                            activeTab === 'add'
+                                                ? 'bg-blue-600 text-white shadow-lg'
+                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                        }`}
+                                    >
+                                        Add Entry
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('view')}
+                                        className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                                            activeTab === 'view'
+                                                ? 'bg-blue-600 text-white shadow-lg'
+                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                        }`}
+                                    >
+                                        View Records
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('drivers')}
+                                        className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                                            activeTab === 'drivers'
+                                                ? 'bg-blue-600 text-white shadow-lg'
+                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                        }`}
+                                    >
+                                        Driver Summary
+                                    </button>
+                                </div>
+
+                                {activeTab === 'add' && (
+                                    <div className="bg-gray-50 p-6 rounded-xl">
+                                        <form onSubmit={handleSubmit} className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                    Driver Name
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    required
+                                                    value={formData.name}
+                                                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    placeholder="Enter driver name"
+                                                />
+                                            </div>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                        Date
+                                                    </label>
+                                                    <input
+                                                        type="date"
+                                                        required
+                                                        value={formData.date}
+                                                        onChange={(e) => setFormData({...formData, date: e.target.value})}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                        Number of Tows
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        required
+                                                        min="0"
+                                                        value={formData.tows}
+                                                        onChange={(e) => setFormData({...formData, tows: parseInt(e.target.value) || 0})}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                        $ per Tow
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        required
+                                                        min="0"
+                                                        step="0.01"
+                                                        value={formData.dollarPerTow}
+                                                        onChange={(e) => setFormData({...formData, dollarPerTow: parseFloat(e.target.value) || 0})}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-blue-50 p-4 rounded-lg">
+                                                <p className="text-lg font-semibold text-gray-700">
+                                                    Total Earnings: <span className="text-blue-600">
+                                                        ${(formData.tows * formData.dollarPerTow).toFixed(2)}
+                                                    </span>
+                                                </p>
+                                            </div>
+
+                                            <button
+                                                type="submit"
+                                                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg"
+                                            >
+                                                Add Entry
+                                            </button>
+                                        </form>
+                                    </div>
+                                )}
+
+                                {activeTab === 'view' && (
+                                    <div>
+                                        <div className="flex gap-2 mb-4">
+                                            <button
+                                                onClick={exportData}
+                                                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all"
+                                            >
+                                                <Download /> Export Data
+                                            </button>
+                                            <label className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all cursor-pointer">
+                                                <Upload /> Import Data
+                                                <input
+                                                    type="file"
+                                                    accept=".json"
+                                                    onChange={importData}
+                                                    className="hidden"
+                                                />
+                                            </label>
+                                        </div>
+
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full">
+                                                <thead className="bg-gray-100">
+                                                    <tr>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Tows</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">$/Tow</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Earnings</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {drivers.map((driver) => (
+                                                        <tr key={driver.id} className="border-b hover:bg-gray-50">
+                                                            <td className="px-4 py-3 text-sm">{driver.name}</td>
+                                                            <td className="px-4 py-3 text-sm">{driver.date}</td>
+                                                            <td className="px-4 py-3 text-sm">{driver.tows}</td>
+                                                            <td className="px-4 py-3 text-sm">${driver.dollarPerTow}</td>
+                                                            <td className="px-4 py-3 text-sm font-semibold text-green-600">
+                                                                ${driver.earnings.toFixed(2)}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-sm">
+                                                                <button
+                                                                    onClick={() => deleteEntry(driver.id)}
+                                                                    className="text-red-600 hover:text-red-800 font-semibold"
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                            {drivers.length === 0 && (
+                                                <p className="text-center text-gray-500 py-8">No entries yet. Add your first entry!</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {activeTab === 'drivers' && (
+                                    <div className="space-y-4">
+                                        {Object.keys(driverStats).length === 0 ? (
+                                            <p className="text-center text-gray-500 py-8">No driver data yet.</p>
+                                        ) : (
+                                            Object.entries(driverStats).map(([name, stats]) => (
+                                                <div key={name} className="bg-gray-50 p-4 rounded-xl">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <h3 className="text-xl font-bold text-gray-800">{name}</h3>
+                                                        <button
+                                                            onClick={() => setSelectedDriver(selectedDriver === name ? null : name)}
+                                                            className="text-blue-600 hover:text-blue-800 font-semibold"
+                                                        >
+                                                            {selectedDriver === name ? 'Hide Details' : 'Show Details'}
+                                                        </button>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <p className="text-sm text-gray-600">Total Tows</p>
+                                                            <p className="text-2xl font-bold text-blue-600">{stats.totalTows}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm text-gray-600">Total Earnings</p>
+                                                            <p className="text-2xl font-bold text-green-600">
+                                                                ${stats.totalEarnings.toFixed(2)}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    {selectedDriver === name && (
+                                                        <div className="mt-4 space-y-2">
+                                                            {stats.entries.map(entry => (
+                                                                <div key={entry.id} className="bg-white p-3 rounded-lg flex justify-between items-center">
+                                                                    <div>
+                                                                        <p className="font-semibold">{entry.date}</p>
+                                                                        <p className="text-sm text-gray-600">
+                                                                            {entry.tows} tows × ${entry.dollarPerTow}
+                                                                        </p>
+                                                                    </div>
+                                                                    <p className="font-bold text-green-600">
+                                                                        ${entry.earnings.toFixed(2)}
+                                                                    </p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<TowingPayrollSystem />);
     </script>
 </body>
 </html>
