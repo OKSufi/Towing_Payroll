@@ -12,385 +12,655 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        // Simple icon components
-        const Calendar = () => <span>📅</span>;
-        const DollarSign = () => <span>💵</span>;
-        const TrendingUp = () => <span>📈</span>;
-        const Users = () => <span>👥</span>;
-        const Download = () => <span>⬇️</span>;
-        const Upload = () => <span>⬆️</span>;
+        const { useState, useEffect } = React;
 
-        function TowingPayrollSystem() {
-            const [drivers, setDrivers] = React.useState([]);
-            const [selectedDriver, setSelectedDriver] = React.useState(null);
-            const [activeTab, setActiveTab] = React.useState('add');
+        // Icons as simple components
+        const Plus = () => <span className="inline-block">➕</span>;
+        const Trash2 = () => <span className="inline-block">🗑️</span>;
+        const DollarSign = () => <span className="inline-block">💵</span>;
+        const TrendingUp = () => <span className="inline-block">📈</span>;
+        const Calendar = () => <span className="inline-block">📅</span>;
+        const FileText = () => <span className="inline-block">📄</span>;
+
+        const DRIVERS = [
+          { id: 'akeel', name: 'Akeel', commissionRate: 0, isOwner: true },
+          { id: 'travis', name: 'Travis', commissionRate: 0.35, isOwner: false }
+        ];
+
+        const AAA_MEMBER_TYPES = ['RV', 'Plus', 'Classic', 'Basic'];
+
+        const IAA_ZONES = [
+          { zone: 1, from: 0, to: 5, rate: 60 },
+          { zone: 2, from: 6, to: 10, rate: 72 },
+          { zone: 3, from: 11, to: 15, rate: 82 },
+          { zone: 4, from: 16, to: 20, rate: 92 },
+          { zone: 5, from: 21, to: 25, rate: 103 },
+          { zone: 6, from: 26, to: 30, rate: 113 },
+          { zone: 7, from: 31, to: 35, rate: 124 },
+          { zone: 8, from: 36, to: 40, rate: 134 },
+          { zone: 9, from: 41, to: 45, rate: 145 },
+          { zone: 10, from: 46, to: 50, rate: 155 },
+          { zone: 11, from: 51, to: 60, rate: 176 },
+          { zone: 12, from: 61, to: 70, rate: 197 },
+          { zone: 13, from: 71, to: 80, rate: 218 },
+          { zone: 14, from: 81, to: 90, rate: 239 },
+          { zone: 15, from: 91, to: 100, rate: 260 },
+          { zone: 16, from: 101, to: 110, rate: 281 },
+          { zone: 17, from: 111, to: 120, rate: 304 },
+          { zone: 18, from: 121, to: 130, rate: 323 },
+          { zone: 19, from: 131, to: 140, rate: 344 },
+          { zone: 20, from: 141, to: 344, rate: 344 }
+        ];
+
+        function TowingPayroll() {
+          const [workOrders, setWorkOrders] = useState([]);
+          const [advances, setAdvances] = useState({});
+          const [showAddOrder, setShowAddOrder] = useState(false);
+          const [currentPayPeriodStart, setCurrentPayPeriodStart] = useState('');
+          const [currentPayPeriodEnd, setCurrentPayPeriodEnd] = useState('');
+          
+          const [newOrder, setNewOrder] = useState({
+            invoiceNumber: '',
+            date: new Date().toISOString().split('T')[0],
+            driverId: 'travis',
+            company: 'AAA',
+            memberType: 'Plus',
+            enrouteMiles: '',
+            towMiles: '',
+            customerOverage: '',
+            customerPaymentMethod: 'Cash',
+            iaaZone: '1',
+            iaaZone20Miles: '',
+            privateAmount: '',
+            privatePaymentMethod: 'Cash'
+          });
+
+          useEffect(() => {
+            try {
+              const saved = localStorage.getItem('towingWorkOrders');
+              const savedAdvances = localStorage.getItem('towingAdvances');
+              if (saved) setWorkOrders(JSON.parse(saved));
+              if (savedAdvances) setAdvances(JSON.parse(savedAdvances));
+            } catch (error) {
+              console.log('localStorage not available');
+            }
+
+            const today = new Date();
+            const dayOfWeek = today.getDay();
+            const monday = new Date(today);
+            monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
             
-            const [formData, setFormData] = React.useState({
-                name: '',
-                date: new Date().toISOString().split('T')[0],
-                tows: 0,
-                dollarPerTow: 30
+            setCurrentPayPeriodStart(monday.toISOString().split('T')[0]);
+            setCurrentPayPeriodEnd(sunday.toISOString().split('T')[0]);
+          }, []);
+
+          useEffect(() => {
+            try {
+              localStorage.setItem('towingWorkOrders', JSON.stringify(workOrders));
+            } catch (error) {
+              console.log('localStorage not available');
+            }
+          }, [workOrders]);
+
+          useEffect(() => {
+            try {
+              localStorage.setItem('towingAdvances', JSON.stringify(advances));
+            } catch (error) {
+              console.log('localStorage not available');
+            }
+          }, [advances]);
+
+          const calculateAAARevenue = (order) => {
+            const onHook = 60;
+            const enrouteMiles = parseFloat(order.enrouteMiles) || 0;
+            const towMiles = parseFloat(order.towMiles) || 0;
+            
+            let enrouteRevenue = 0;
+            let towRevenue = 0;
+            
+            if (order.memberType === 'Basic') {
+              enrouteRevenue = enrouteMiles > 5 ? (enrouteMiles - 5) * 3 : 0;
+              const paidTowMiles = Math.min(towMiles > 5 ? towMiles - 5 : 0, 10);
+              towRevenue = paidTowMiles * 5;
+            } else {
+              enrouteRevenue = enrouteMiles > 5 ? (enrouteMiles - 5) * 5 : 0;
+              towRevenue = towMiles > 5 ? (towMiles - 5) * 4 : 0;
+            }
+            
+            return onHook + enrouteRevenue + towRevenue;
+          };
+
+          const calculateIAARevenue = (order) => {
+            const zone = parseInt(order.iaaZone);
+            if (zone === 20) {
+              const extraMiles = parseFloat(order.iaaZone20Miles) || 0;
+              return 344 + (extraMiles * 1.44);
+            }
+            const zoneData = IAA_ZONES.find(z => z.zone === zone);
+            return zoneData ? zoneData.rate : 0;
+          };
+
+          const calculatePrivateRevenue = (order) => {
+            return parseFloat(order.privateAmount) || 0;
+          };
+
+          const calculateRevenue = (order) => {
+            if (order.company === 'AAA') return calculateAAARevenue(order);
+            if (order.company === 'IAA') return calculateIAARevenue(order);
+            if (order.company === 'Private') return calculatePrivateRevenue(order);
+            return 0;
+          };
+
+          const addWorkOrder = () => {
+            if (!newOrder.invoiceNumber || !newOrder.date) {
+              alert('Please enter invoice number and date');
+              return;
+            }
+
+            const order = {
+              ...newOrder,
+              id: Date.now().toString(),
+              revenue: 0
+            };
+            
+            order.revenue = calculateRevenue(order);
+            
+            setWorkOrders([...workOrders, order]);
+            setNewOrder({
+              invoiceNumber: '',
+              date: new Date().toISOString().split('T')[0],
+              driverId: 'travis',
+              company: 'AAA',
+              memberType: 'Plus',
+              enrouteMiles: '',
+              towMiles: '',
+              customerOverage: '',
+              customerPaymentMethod: 'Cash',
+              iaaZone: '1',
+              iaaZone20Miles: '',
+              privateAmount: '',
+              privatePaymentMethod: 'Cash'
             });
+            setShowAddOrder(false);
+          };
 
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                const earnings = formData.tows * formData.dollarPerTow;
-                
-                const newEntry = {
-                    id: Date.now(),
-                    ...formData,
-                    earnings
-                };
+          const deleteWorkOrder = (id) => {
+            if (confirm('Delete this work order?')) {
+              setWorkOrders(workOrders.filter(order => order.id !== id));
+            }
+          };
 
-                setDrivers(prev => [...prev, newEntry]);
-                setFormData({
-                    name: formData.name,
-                    date: new Date().toISOString().split('T')[0],
-                    tows: 0,
-                    dollarPerTow: 30
-                });
+          const updateAdvance = (driverId, amount) => {
+            setAdvances({ ...advances, [driverId]: parseFloat(amount) || 0 });
+          };
+
+          const getPayPeriodOrders = () => {
+            return workOrders.filter(order => {
+              return order.date >= currentPayPeriodStart && order.date <= currentPayPeriodEnd;
+            });
+          };
+
+          const calculateDriverStats = (driverId, orders) => {
+            const driverOrders = orders.filter(order => order.driverId === driverId);
+            const totalRevenue = driverOrders.reduce((sum, order) => sum + order.revenue, 0);
+            const driver = DRIVERS.find(d => d.id === driverId);
+            const commission = totalRevenue * driver.commissionRate;
+            const advance = advances[driverId] || 0;
+            const netPay = commission - advance;
+            
+            return {
+              callCount: driverOrders.length,
+              totalRevenue,
+              commission,
+              advance,
+              netPay,
+              orders: driverOrders
             };
+          };
 
-            const deleteEntry = (id) => {
-                setDrivers(prev => prev.filter(d => d.id !== id));
-            };
+          const calculateYTD = (driverId) => {
+            return calculateDriverStats(driverId, workOrders);
+          };
 
-            const exportData = () => {
-                const dataStr = JSON.stringify(drivers, null, 2);
-                const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                const url = URL.createObjectURL(dataBlob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = 'towing-payroll-data.json';
-                link.click();
-            };
+          const payPeriodOrders = getPayPeriodOrders();
+          const payPeriodTotalRevenue = payPeriodOrders.reduce((sum, order) => sum + order.revenue, 0);
+          
+          const revenueByCompany = {
+            AAA: payPeriodOrders.filter(o => o.company === 'AAA').reduce((sum, o) => sum + o.revenue, 0),
+            IAA: payPeriodOrders.filter(o => o.company === 'IAA').reduce((sum, o) => sum + o.revenue, 0),
+            Private: payPeriodOrders.filter(o => o.company === 'Private').reduce((sum, o) => sum + o.revenue, 0)
+          };
 
-            const importData = (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        try {
-                            const imported = JSON.parse(event.target.result);
-                            setDrivers(imported);
-                        } catch (error) {
-                            alert('Error importing data. Please check the file format.');
-                        }
-                    };
-                    reader.readAsText(file);
-                }
-            };
-
-            const driverStats = React.useMemo(() => {
-                const stats = {};
-                drivers.forEach(entry => {
-                    if (!stats[entry.name]) {
-                        stats[entry.name] = {
-                            totalTows: 0,
-                            totalEarnings: 0,
-                            entries: []
-                        };
-                    }
-                    stats[entry.name].totalTows += entry.tows;
-                    stats[entry.name].totalEarnings += entry.earnings;
-                    stats[entry.name].entries.push(entry);
-                });
-                return stats;
-            }, [drivers]);
-
-            const totals = React.useMemo(() => {
-                return {
-                    totalDrivers: Object.keys(driverStats).length,
-                    totalTows: drivers.reduce((sum, d) => sum + d.tows, 0),
-                    totalEarnings: drivers.reduce((sum, d) => sum + d.earnings, 0)
-                };
-            }, [drivers, driverStats]);
-
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-8">
-                    <div className="max-w-7xl mx-auto">
-                        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-                            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 sm:p-8">
-                                <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
-                                    Towing Payroll System
-                                </h1>
-                                <p className="text-blue-100">Track driver performance and earnings</p>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6 bg-gray-50">
-                                <div className="bg-white p-4 rounded-xl shadow-md border-l-4 border-blue-500">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-gray-600 text-sm">Total Drivers</p>
-                                            <p className="text-2xl font-bold text-gray-800">{totals.totalDrivers}</p>
-                                        </div>
-                                        <div className="text-4xl"><Users /></div>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white p-4 rounded-xl shadow-md border-l-4 border-green-500">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-gray-600 text-sm">Total Tows</p>
-                                            <p className="text-2xl font-bold text-gray-800">{totals.totalTows}</p>
-                                        </div>
-                                        <div className="text-4xl"><TrendingUp /></div>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white p-4 rounded-xl shadow-md border-l-4 border-purple-500">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-gray-600 text-sm">Total Earnings</p>
-                                            <p className="text-2xl font-bold text-gray-800">
-                                                ${totals.totalEarnings.toFixed(2)}
-                                            </p>
-                                        </div>
-                                        <div className="text-4xl"><DollarSign /></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mx-6 mb-4">
-                                <p className="text-sm text-yellow-800">
-                                    <strong>Note:</strong> Data is stored in memory only. Use Export/Import to save your data permanently.
-                                </p>
-                            </div>
-
-                            <div className="p-6">
-                                <div className="flex flex-wrap gap-2 mb-6">
-                                    <button
-                                        onClick={() => setActiveTab('add')}
-                                        className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-                                            activeTab === 'add'
-                                                ? 'bg-blue-600 text-white shadow-lg'
-                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                        }`}
-                                    >
-                                        Add Entry
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveTab('view')}
-                                        className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-                                            activeTab === 'view'
-                                                ? 'bg-blue-600 text-white shadow-lg'
-                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                        }`}
-                                    >
-                                        View Records
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveTab('drivers')}
-                                        className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-                                            activeTab === 'drivers'
-                                                ? 'bg-blue-600 text-white shadow-lg'
-                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                        }`}
-                                    >
-                                        Driver Summary
-                                    </button>
-                                </div>
-
-                                {activeTab === 'add' && (
-                                    <div className="bg-gray-50 p-6 rounded-xl">
-                                        <form onSubmit={handleSubmit} className="space-y-4">
-                                            <div>
-                                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                    Driver Name
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    required
-                                                    value={formData.name}
-                                                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                    placeholder="Enter driver name"
-                                                />
-                                            </div>
-
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                                <div>
-                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                        Date
-                                                    </label>
-                                                    <input
-                                                        type="date"
-                                                        required
-                                                        value={formData.date}
-                                                        onChange={(e) => setFormData({...formData, date: e.target.value})}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                    />
-                                                </div>
-
-                                                <div>
-                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                        Number of Tows
-                                                    </label>
-                                                    <input
-                                                        type="number"
-                                                        required
-                                                        min="0"
-                                                        value={formData.tows}
-                                                        onChange={(e) => setFormData({...formData, tows: parseInt(e.target.value) || 0})}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                    />
-                                                </div>
-
-                                                <div>
-                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                        $ per Tow
-                                                    </label>
-                                                    <input
-                                                        type="number"
-                                                        required
-                                                        min="0"
-                                                        step="0.01"
-                                                        value={formData.dollarPerTow}
-                                                        onChange={(e) => setFormData({...formData, dollarPerTow: parseFloat(e.target.value) || 0})}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div className="bg-blue-50 p-4 rounded-lg">
-                                                <p className="text-lg font-semibold text-gray-700">
-                                                    Total Earnings: <span className="text-blue-600">
-                                                        ${(formData.tows * formData.dollarPerTow).toFixed(2)}
-                                                    </span>
-                                                </p>
-                                            </div>
-
-                                            <button
-                                                type="submit"
-                                                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg"
-                                            >
-                                                Add Entry
-                                            </button>
-                                        </form>
-                                    </div>
-                                )}
-
-                                {activeTab === 'view' && (
-                                    <div>
-                                        <div className="flex gap-2 mb-4">
-                                            <button
-                                                onClick={exportData}
-                                                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all"
-                                            >
-                                                <Download /> Export Data
-                                            </button>
-                                            <label className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all cursor-pointer">
-                                                <Upload /> Import Data
-                                                <input
-                                                    type="file"
-                                                    accept=".json"
-                                                    onChange={importData}
-                                                    className="hidden"
-                                                />
-                                            </label>
-                                        </div>
-
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full">
-                                                <thead className="bg-gray-100">
-                                                    <tr>
-                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
-                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
-                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Tows</th>
-                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">$/Tow</th>
-                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Earnings</th>
-                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Action</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {drivers.map((driver) => (
-                                                        <tr key={driver.id} className="border-b hover:bg-gray-50">
-                                                            <td className="px-4 py-3 text-sm">{driver.name}</td>
-                                                            <td className="px-4 py-3 text-sm">{driver.date}</td>
-                                                            <td className="px-4 py-3 text-sm">{driver.tows}</td>
-                                                            <td className="px-4 py-3 text-sm">${driver.dollarPerTow}</td>
-                                                            <td className="px-4 py-3 text-sm font-semibold text-green-600">
-                                                                ${driver.earnings.toFixed(2)}
-                                                            </td>
-                                                            <td className="px-4 py-3 text-sm">
-                                                                <button
-                                                                    onClick={() => deleteEntry(driver.id)}
-                                                                    className="text-red-600 hover:text-red-800 font-semibold"
-                                                                >
-                                                                    Delete
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                            {drivers.length === 0 && (
-                                                <p className="text-center text-gray-500 py-8">No entries yet. Add your first entry!</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {activeTab === 'drivers' && (
-                                    <div className="space-y-4">
-                                        {Object.keys(driverStats).length === 0 ? (
-                                            <p className="text-center text-gray-500 py-8">No driver data yet.</p>
-                                        ) : (
-                                            Object.entries(driverStats).map(([name, stats]) => (
-                                                <div key={name} className="bg-gray-50 p-4 rounded-xl">
-                                                    <div className="flex justify-between items-center mb-2">
-                                                        <h3 className="text-xl font-bold text-gray-800">{name}</h3>
-                                                        <button
-                                                            onClick={() => setSelectedDriver(selectedDriver === name ? null : name)}
-                                                            className="text-blue-600 hover:text-blue-800 font-semibold"
-                                                        >
-                                                            {selectedDriver === name ? 'Hide Details' : 'Show Details'}
-                                                        </button>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <div>
-                                                            <p className="text-sm text-gray-600">Total Tows</p>
-                                                            <p className="text-2xl font-bold text-blue-600">{stats.totalTows}</p>
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-sm text-gray-600">Total Earnings</p>
-                                                            <p className="text-2xl font-bold text-green-600">
-                                                                ${stats.totalEarnings.toFixed(2)}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    {selectedDriver === name && (
-                                                        <div className="mt-4 space-y-2">
-                                                            {stats.entries.map(entry => (
-                                                                <div key={entry.id} className="bg-white p-3 rounded-lg flex justify-between items-center">
-                                                                    <div>
-                                                                        <p className="font-semibold">{entry.date}</p>
-                                                                        <p className="text-sm text-gray-600">
-                                                                            {entry.tows} tows × ${entry.dollarPerTow}
-                                                                        </p>
-                                                                    </div>
-                                                                    <p className="font-bold text-green-600">
-                                                                        ${entry.earnings.toFixed(2)}
-                                                                    </p>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 p-4">
+              <div className="max-w-7xl mx-auto">
+                <div className="text-center mb-8">
+                  <h1 className="text-4xl font-bold text-blue-900 mb-2">🚛 Towing Payroll System</h1>
+                  <p className="text-gray-600">Track work orders and calculate driver commissions</p>
                 </div>
-            );
+
+                <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Calendar />
+                      <span className="font-semibold text-gray-700">Pay Period:</span>
+                    </div>
+                    <input
+                      type="date"
+                      value={currentPayPeriodStart}
+                      onChange={(e) => setCurrentPayPeriodStart(e.target.value)}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-gray-500">to</span>
+                    <input
+                      type="date"
+                      value={currentPayPeriodEnd}
+                      onChange={(e) => setCurrentPayPeriodEnd(e.target.value)}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={() => setShowAddOrder(true)}
+                      className="ml-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold"
+                    >
+                      <Plus /> Add Work Order
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-white rounded-xl shadow-lg p-6">
+                    <div className="flex items-center gap-3 mb-2">
+                      <DollarSign />
+                      <h3 className="font-semibold text-gray-700">Total Revenue</h3>
+                    </div>
+                    <p className="text-3xl font-bold text-green-600">${payPeriodTotalRevenue.toFixed(2)}</p>
+                    <p className="text-sm text-gray-500 mt-1">This pay period</p>
+                  </div>
+                  
+                  <div className="bg-white rounded-xl shadow-lg p-6">
+                    <div className="flex items-center gap-3 mb-2">
+                      <FileText />
+                      <h3 className="font-semibold text-gray-700">AAA Revenue</h3>
+                    </div>
+                    <p className="text-3xl font-bold text-blue-600">${revenueByCompany.AAA.toFixed(2)}</p>
+                    <p className="text-sm text-gray-500 mt-1">{payPeriodOrders.filter(o => o.company === 'AAA').length} calls</p>
+                  </div>
+                  
+                  <div className="bg-white rounded-xl shadow-lg p-6">
+                    <div className="flex items-center gap-3 mb-2">
+                      <FileText />
+                      <h3 className="font-semibold text-gray-700">IAA Revenue</h3>
+                    </div>
+                    <p className="text-3xl font-bold text-purple-600">${revenueByCompany.IAA.toFixed(2)}</p>
+                    <p className="text-sm text-gray-500 mt-1">{payPeriodOrders.filter(o => o.company === 'IAA').length} calls</p>
+                  </div>
+                  
+                  <div className="bg-white rounded-xl shadow-lg p-6">
+                    <div className="flex items-center gap-3 mb-2">
+                      <FileText />
+                      <h3 className="font-semibold text-gray-700">Private Revenue</h3>
+                    </div>
+                    <p className="text-3xl font-bold text-orange-600">${revenueByCompany.Private.toFixed(2)}</p>
+                    <p className="text-sm text-gray-500 mt-1">{payPeriodOrders.filter(o => o.company === 'Private').length} calls</p>
+                  </div>
+                </div>
+
+                {DRIVERS.map(driver => {
+                  const payPeriodStats = calculateDriverStats(driver.id, payPeriodOrders);
+                  const ytdStats = calculateYTD(driver.id);
+                  
+                  return (
+                    <div key={driver.id} className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                      <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                        {driver.name} {driver.isOwner && '(Owner)'}
+                      </h2>
+                      
+                      <div className="grid md:grid-cols-2 gap-6 mb-6">
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                            <Calendar />
+                            Current Pay Period
+                          </h3>
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Total Calls:</span>
+                              <span className="font-semibold">{payPeriodStats.callCount}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Total Revenue:</span>
+                              <span className="font-semibold text-green-600">${payPeriodStats.totalRevenue.toFixed(2)}</span>
+                            </div>
+                            {!driver.isOwner && (
+                              <>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Commission ({driver.commissionRate * 100}%):</span>
+                                  <span className="font-semibold text-blue-600">${payPeriodStats.commission.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-gray-600">Advances:</span>
+                                  <input
+                                    type="number"
+                                    value={advances[driver.id] || ''}
+                                    onChange={(e) => updateAdvance(driver.id, e.target.value)}
+                                    placeholder="0.00"
+                                    className="w-24 px-2 py-1 border border-gray-300 rounded text-right focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+                                <div className="flex justify-between pt-2 border-t border-gray-300">
+                                  <span className="text-gray-800 font-semibold">Net Pay:</span>
+                                  <span className="font-bold text-green-600 text-lg">${payPeriodStats.netPay.toFixed(2)}</span>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="border border-gray-200 rounded-lg p-4 bg-blue-50">
+                          <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                            <TrendingUp />
+                            Year to Date
+                          </h3>
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Total Calls:</span>
+                              <span className="font-semibold">{ytdStats.callCount}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Total Revenue:</span>
+                              <span className="font-semibold text-green-600">${ytdStats.totalRevenue.toFixed(2)}</span>
+                            </div>
+                            {!driver.isOwner && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Total Commission:</span>
+                                <span className="font-semibold text-blue-600">${ytdStats.commission.toFixed(2)}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {payPeriodStats.orders.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold text-gray-700 mb-3">Work Orders This Period:</h4>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead className="bg-gray-100">
+                                <tr>
+                                  <th className="px-3 py-2 text-left">Invoice #</th>
+                                  <th className="px-3 py-2 text-left">Date</th>
+                                  <th className="px-3 py-2 text-left">Company</th>
+                                  <th className="px-3 py-2 text-left">Details</th>
+                                  <th className="px-3 py-2 text-right">Revenue</th>
+                                  <th className="px-3 py-2"></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {payPeriodStats.orders.map(order => (
+                                  <tr key={order.id} className="border-b border-gray-200 hover:bg-gray-50">
+                                    <td className="px-3 py-2">{order.invoiceNumber}</td>
+                                    <td className="px-3 py-2">{order.date}</td>
+                                    <td className="px-3 py-2">
+                                      <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                        order.company === 'AAA' ? 'bg-blue-100 text-blue-700' :
+                                        order.company === 'IAA' ? 'bg-purple-100 text-purple-700' :
+                                        'bg-orange-100 text-orange-700'
+                                      }`}>
+                                        {order.company}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2 text-xs text-gray-600">
+                                      {order.company === 'AAA' && `${order.memberType}, Enroute: ${order.enrouteMiles}mi, Tow: ${order.towMiles}mi`}
+                                      {order.company === 'IAA' && `Zone ${order.iaaZone}${order.iaaZone === '20' ? ` + ${order.iaaZone20Miles}mi` : ''}`}
+                                      {order.company === 'Private' && `${order.privatePaymentMethod}`}
+                                    </td>
+                                    <td className="px-3 py-2 text-right font-semibold text-green-600">
+                                      ${order.revenue.toFixed(2)}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <button
+                                        onClick={() => deleteWorkOrder(order.id)}
+                                        className="p-1 text-red-500 hover:bg-red-50 rounded"
+                                      >
+                                        <Trash2 />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {showAddOrder && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-screen overflow-y-auto p-6">
+                      <h3 className="text-2xl font-bold text-gray-800 mb-4">Add Work Order</h3>
+                      
+                      <div className="space-y-4">
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Invoice Number</label>
+                            <input
+                              type="text"
+                              value={newOrder.invoiceNumber}
+                              onChange={(e) => setNewOrder({ ...newOrder, invoiceNumber: e.target.value })}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              placeholder="INV-001"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Date</label>
+                            <input
+                              type="date"
+                              value={newOrder.date}
+                              onChange={(e) => setNewOrder({ ...newOrder, date: e.target.value })}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Driver</label>
+                            <select
+                              value={newOrder.driverId}
+                              onChange={(e) => setNewOrder({ ...newOrder, driverId: e.target.value })}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            >
+                              {DRIVERS.map(driver => (
+                                <option key={driver.id} value={driver.id}>{driver.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Company</label>
+                            <select
+                              value={newOrder.company}
+                              onChange={(e) => setNewOrder({ ...newOrder, company: e.target.value })}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="AAA">AAA</option>
+                              <option value="IAA">IAA</option>
+                              <option value="Private">Private</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {newOrder.company === 'AAA' && (
+                          <>
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">Member Type</label>
+                              <select
+                                value={newOrder.memberType}
+                                onChange={(e) => setNewOrder({ ...newOrder, memberType: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              >
+                                {AAA_MEMBER_TYPES.map(type => (
+                                  <option key={type} value={type}>{type}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="grid md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Enroute Miles</label>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  value={newOrder.enrouteMiles}
+                                  onChange={(e) => setNewOrder({ ...newOrder, enrouteMiles: e.target.value })}
+                                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                  placeholder="0.0"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Tow Miles</label>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  value={newOrder.towMiles}
+                                  onChange={(e) => setNewOrder({ ...newOrder, towMiles: e.target.value })}
+                                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                  placeholder="0.0"
+                                />
+                              </div>
+                            </div>
+                            {newOrder.memberType === 'Basic' && parseFloat(newOrder.towMiles) > 10 && (
+                              <div className="grid md:grid-cols-2 gap-4 bg-yellow-50 p-4 rounded-lg">
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 mb-2">Customer Overage Payment</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    value={newOrder.customerOverage}
+                                    onChange={(e) => setNewOrder({ ...newOrder, customerOverage: e.target.value })}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 mb-2">Payment Method</label>
+                                  <select
+                                    value={newOrder.customerPaymentMethod}
+                                    onChange={(e) => setNewOrder({ ...newOrder, customerPaymentMethod: e.target.value })}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    <option value="Cash">Cash</option>
+                                    <option value="Card">Card</option>
+                                  </select>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+
+                        {newOrder.company === 'IAA' && (
+                          <>
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">Zone</label>
+                              <select
+                                value={newOrder.iaaZone}
+                                onChange={(e) => setNewOrder({ ...newOrder, iaaZone: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              >
+                                {IAA_ZONES.map(zone => (
+                                  <option key={zone.zone} value={zone.zone}>
+                                    Zone {zone.zone} ({zone.from}-{zone.to} miles) - ${zone.rate}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            {newOrder.iaaZone === '20' && (
+                              <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Miles Over 344</label>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  value={newOrder.iaaZone20Miles}
+                                  onChange={(e) => setNewOrder({ ...newOrder, iaaZone20Miles: e.target.value })}
+                                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                  placeholder="0.0"
+                                />
+                                <p className="text-sm text-gray-500 mt-1">Rate: $344 + $1.44/mile over 344</p>
+                              </div>
+                            )}
+                          </>
+                        )}
+
+                        {newOrder.company === 'Private' && (
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">Amount</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={newOrder.privateAmount}
+                                onChange={(e) => setNewOrder({ ...newOrder, privateAmount: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">Payment Method</label>
+                              <select
+                                value={newOrder.privatePaymentMethod}
+                                onChange={(e) => setNewOrder({ ...newOrder, privatePaymentMethod: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="Cash">Cash</option>
+                                <option value="Card">Card</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex gap-3 pt-4">
+                          <button
+                            onClick={() => {
+                              setShowAddOrder(false);
+                              setNewOrder({
+                                invoiceNumber: '',
+                                date: new Date().toISOString().split('T')[0],
+                                driverId: 'travis',
+                                company: 'AAA',
+                                memberType: 'Plus',
+                                enrouteMiles: '',
+                                towMiles: '',
+                                customerOverage: '',
+                                customerPaymentMethod: 'Cash',
+                                iaaZone: '1',
+                                iaaZone20Miles: '',
+                                privateAmount: '',
+                                privatePaymentMethod: 'Cash'
+                              });
+                            }}
+                            className="flex-1 px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-semibold"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={addWorkOrder}
+                            className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                          >
+                            Add Work Order
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<TowingPayrollSystem />);
+        root.render(<TowingPayroll />);
     </script>
 </body>
 </html>
