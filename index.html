@@ -21,6 +21,7 @@
         const TrendingUp = () => <span className="inline-block">📈</span>;
         const Calendar = () => <span className="inline-block">📅</span>;
         const FileText = () => <span className="inline-block">📄</span>;
+        const Download = () => <span className="inline-block">📥</span>;
 
         const DRIVERS = [
           { id: 'akeel', name: 'Akeel', commissionRate: 0, isOwner: true },
@@ -224,6 +225,47 @@
             return calculateDriverStats(driverId, workOrders);
           };
 
+          const exportToCSV = () => {
+            if (workOrders.length === 0) {
+              alert('No work orders to export!');
+              return;
+            }
+
+            const headers = ['Invoice Number', 'Date', 'Driver', 'Company', 'Member Type/Zone', 'Enroute Miles', 'Tow Miles', 'Revenue'];
+            
+            const rows = workOrders.map(order => {
+              const driver = DRIVERS.find(d => d.id === order.driverId);
+              return [
+                order.invoiceNumber,
+                order.date,
+                driver.name,
+                order.company,
+                order.company === 'AAA' ? order.memberType : (order.company === 'IAA' ? `Zone ${order.iaaZone}` : 'N/A'),
+                order.enrouteMiles || 'N/A',
+                order.towMiles || 'N/A',
+                order.revenue.toFixed(2)
+              ];
+            });
+
+            const csvContent = [
+              headers.join(','),
+              ...rows.map(row => row.join(','))
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            const filename = `towing_payroll_${currentPayPeriodStart}_to_${currentPayPeriodEnd}.csv`;
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          };
+
           const payPeriodOrders = getPayPeriodOrders();
           const payPeriodTotalRevenue = payPeriodOrders.reduce((sum, order) => sum + order.revenue, 0);
           
@@ -260,6 +302,12 @@
                       onChange={(e) => setCurrentPayPeriodEnd(e.target.value)}
                       className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
+                    <button
+                      onClick={exportToCSV}
+                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 font-semibold"
+                    >
+                      <Download /> Export CSV
+                    </button>
                     <button
                       onClick={() => setShowAddOrder(true)}
                       className="ml-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold"
